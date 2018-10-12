@@ -1,0 +1,29 @@
+This is a short explanation of how DR.py works.
+
+DR.py runs using Python 2.7. The code is made up of functions, 
+which are called inside '__main__'. 2 example stars are defined 
+(as parameters inside numpy arrays) at the start of '__main__'. 
+To replace these stars with your star list, simply load the list from a file
+(e.g with numpy.loadtxt()).
+
+Alternatively, import any individual functions you wish to use into another Python script.
+
+The code requires at least the V-band magnitude, (B-V) colour, position in
+ecliptic and galactic coordinates, parallax and parallax uncertainty.
+You will also need a way of determining whether the stars are dwarfs or giants
+(this adjusts the relations used to calculate I-band magnitude in BV2VI()).
+
+The more information you have on the stars, the fewer functions you will need to run.
+For example, if you have the I-band or TESS magnitudes for the star, you will not need
+to calculate them in the code so do not need to run the BV2VI() function.
+
+When calculating the observing time in the TESS field for each star, the tess_field_only()
+function outputs the total number of sectors that the star will be observed for,
+and the maximum contiguous number ('max_T'). 'max_T' should be used to calculate the
+detection probability Pdet.
+
+Lastly, the globalDetections() function calculates Pdet. there is a keyword argument
+for globalDetections() called vary_beta. To get a realistic estimate of how likely
+you are to detect the Gaussian envelope for your stars, SET vary_beta TO TRUE.
+This will suppress modes of oscillation close to the delta-Scuti instability strip.
+Setting this to False will not suppress modes, and gives a very optimistic Pdet prediction. 
