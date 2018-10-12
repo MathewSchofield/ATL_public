@@ -6,8 +6,9 @@ to make different versions of the ATL. These versions are then merged in the com
 function.
 
 Before using the catalogues in this code:
-The TGAS catalogue is prepared in prepTGAS.py
-The DR2 catalogue is prepared in prepDR2.py
+Download the DR2 and XHIP catalogues from
+https://figshare.com/s/e62b08021fba321175d6
+(TGAS catalogue also available at this link)
 
 References:
     (1)  Anderson+ 2012. catalogue at: http://vizier.cfa.harvard.edu/viz-bin/VizieR?-source=V/137D
@@ -39,13 +40,8 @@ import os
 import copy
 import tarfile
 from scipy import stats
-#from plotTemplates import hrPlot, histPlot, generalPlot, legendScatter
+from plotTemplates import hrPlot, histPlot, generalPlot, legendScatter
 from DR import bv2teff, gal2ecl, Teff2bc2lum, equa_2Ecl_orGal, tess_field_only, globalDetections
-#from TESS_telecon1 import Teff2bc2lum, equa_2Ecl_orGal, tess_field_only, globalDetections
-
-# to calculate sigma(Pdet) upper and lower bounds in combine()
-from copy import deepcopy
-#from sigPdet1 import Param, Sorted
 
 # for TESS observation time
 from astropysics.coords.coordsys import EquatorialCoordinatesEquinox, \
@@ -54,9 +50,8 @@ from itertools import groupby
 from operator import itemgetter
 
 
-# load the XHIP catalogue from (1), the old ATL from TESS_telecon1.py and CTL
-# from the TESS filtergraph portal
 def loadData(fpath, fname, sep=None, nrows=None, print_headers=True, ctl=False):
+    """ Load the catalogues used to generate the ATL from. """
 
     extension = fname.split('.')[-1]
     if ctl == True:
@@ -75,9 +70,8 @@ def loadData(fpath, fname, sep=None, nrows=None, print_headers=True, ctl=False):
         print fname.split('.')[0], list(data)
     return data
 
-
-# calculate reddening using the mwdust Combined15 map
 def reddening(data, file_loc):
+    """ calculate reddening using the mwdust Combined15 dustmap (Green et al (2015)). """
     print data.shape, 'before reddening'
 
     # check if the reddening file exists
@@ -147,11 +141,12 @@ def reddening(data, file_loc):
 
     return data
 
-
-# from F Pijpers 2003. BCv values from Flower 1996 polynomials presented in Torres 2010
-# Av is a keword argument. If reddening values not available, ignore it's effect
-# equation modified to include distance instead of parallax, see 05.04.17 notes
 def Teff2lum(teff, parallax, d, vmag, Av=0):
+    """ Calculate luminosities from effective temperatures. From F Pijpers+ (2003).
+    BCv values from Flower 1996 polynomials presented in Torres+ (2010).
+    Av is a keword argument. If reddening values not available, ignore it's effect.
+    Equation modified to include distance instead of parallax. """
+
     lteff = np.log10(teff)
     BCv = np.full(len(lteff), -100.5)
 
@@ -180,10 +175,9 @@ def Teff2lum(teff, parallax, d, vmag, Av=0):
 
     return lum
 
-
-# calculate Teff and Luminosity from (B-V) and parallax. Correct B-V using reddening E(B-V)
-# Make Teff, Lum, (B-V) and parallax cuts
 def Parameters(data, reddening_floc):
+    """ Calculate Teff and Luminosity from (B-V) and parallax. Correct B-V using
+    reddening E(B-V). Make Teff, Lum, (B-V) and parallax cuts. """
 
     data = data.apply(pd.to_numeric, errors='coerce') # make array all floats
     data = data[data.Plx > 0] # remove stars with negative parallaxes
@@ -244,9 +238,8 @@ def Parameters(data, reddening_floc):
 
     return data
 
-
-# break up the HR diagram into 3 regions
 def regions(data):
+    """ Break up the HR diagram into 3 regions in order to rank targets. (depreciated) """
 
     numaxs = np.array((240., 600.)) # numax limits for region 2 (mu Hz)
 
@@ -275,8 +268,8 @@ def regions(data):
 
     return data
 
-# remove stars outside the red-edge, and above a numax cut-off frequency
 def regions2(data):
+    """ Remove 2-minute cadence stars outside the red-edge, and above a numax cut-off frequency. """
 
     data['tred'] = 8907.0 * ((data['Lum'])**-0.093)
 
@@ -291,8 +284,8 @@ def regions2(data):
     data = data.drop(['region2_rad', 'region2_lum'], axis=1)
     return data
 
-# calculate seismic parameters that were not need until the detection test is run
 def seismicParameters(xhip, teff, lum):
+    """ Calculate seismic parameters that are used in globalDetections() """
 
     # solar parameters
     teff_solar = 5777.0 # Kelvin
@@ -307,10 +300,9 @@ def seismicParameters(xhip, teff, lum):
 
     return cadence, vnyq, rad, numax, teff_solar, teffred_solar, numax_solar, dnu_solar
 
-
-# sort the data by Ic and Pdet value, to investigate how the detection recipe
-# can be replicated with observational data only
 def ranking(data):
+    """ Sort the data by Ic and Pdet value, to investigate how the detection recipe
+    can be replicated with observational data only """
 
     # define the ranking columns. for each column, rank based on each region in temporary arrays,
     # then merge the temp arrays together afterwards
@@ -320,8 +312,6 @@ def ranking(data):
     data['SNRrank_varyBeta'] = -99
     data['IcRank'] = -99
     data['PdetRank_SNR'] = -99
-
-
 
     temp1 = data[data['region']=='1'].sort_values(by='Pdet_fixedBeta', axis=0, ascending=True, kind='quicksort')
     temp1['PdetRank_fixedBeta'] = temp1['Pdet_fixedBeta'].rank(ascending=False)
@@ -555,7 +545,6 @@ def ranking2(data, var, rank, dgn=[], v=False):
 
     return data
 
-
 def pmix_plot1(data, alpha, save, wg=[], vmag=[]):
     """
     Plots the results of ranking3(). Subplots of 2000 stars per panel, sorted
@@ -768,19 +757,16 @@ def ranking3(data, alpha, v=False):
 
     return data
 
-
-
-# make a tarball, given a tarball name, savenames for the files and a save directory
 def make_tarfile(tarName, snames, extension):
+    """ make a tarball, given a tarball name, savenames for the files and a save directory """
+
     tar = tarfile.open(extension + tarName, "w:gz")
     for name in snames:
         tar.add(name, arcname=os.path.basename(name))
     tar.close()
 
-
-# save the entire ranked list, with the correct columns, in the correct order
-# (see Bill's 06.09.16 email).
 def saveData(data):
+    """ save the entire ranked list, with the correct columns, in the correct order. """
 
     if choice == '4':  # for TRILEGAL simulations
         data.to_csv('/home/mxs191/Desktop/MathewSchofield/ATL/TRILEGAL/trilegal_results.csv', index=False)
@@ -894,10 +880,9 @@ def saveData(data):
     #     saveLoc + subFolder + name + 'ATL.csv']
     # make_tarfile(tarName='ATL.tar.gz', snames=snames, extension=saveLoc + subFolder)
 
-
-# for the High Priority combined ATL stars, vary the cadence between 20s and
-# 120s to find the difference in the number of detected stars
 def varyCadence(data, v=False):
+    """ For the High Priority combined ATL stars, vary the cadence between 20s and
+    120s to find the difference in the number of detected stars """
 
     # define parameters & variables needed for the detection recipe
     sys_limit = 0 # in ppm
@@ -1042,9 +1027,8 @@ def varyCadence(data, v=False):
 
     sys.exit()
 
-
-# compare Imag and Tmag values of the ATL stars with observed Imags (i.e from XHIP)
 def Plot_ImagTmag(total):
+    """ Compare Imag and Tmag values of the ATL stars with observed Imags (i.e from XHIP) """
 
     lx = r'$I_{\rm mag}$'
     ly = r'$T_{\rm mag}$'
@@ -1110,7 +1094,6 @@ def Plot_ImagTmag(total):
     plt.tight_layout()
     plt.show()
     fig.savefig(sname + '_b.pdf')
-
 
 def KDE(data, GD=False, DH=True, llog=False, npts=60, pplot=False, v=True):
     """ Calculate a KDE value for each star, using either DH or GD methods.
@@ -1911,95 +1894,6 @@ def combine(saveLoc, v=True, loop=False):
     #     saveLoc + subFolder + 'ATL_region3.csv']
     # make_tarfile(tarName='ATL.tar.gz', snames=snames, extension=saveLoc + subFolder)
 
-
-# check if 'celebrity' stars from dan huber (sent 06.07.17) are in the list
-def huber(data):
-
-    loc = os.getcwd() + os.sep + 'missing_stars' + os.sep + 'ATL_missing1_mat.csv'
-    miss = pd.read_csv(loc, sep='\s+')
-    both = data[ data['HIP'].isin(miss['HIP']) ]
-    print both
-
-
-# check if Ricky Egland's stars are in the ATL (gaia, xhip or combined version)
-def egland(data, dataset, star_list=2, save=False):
-
-    path = '/home/mxs191/Desktop/phd_y2/TESS_telecon/TESS_telecon3/Ricky_Egland_stars/'
-    list1 = 'longterm_var_miss_req.txt'
-    list2 = 'longterm_var_miss_v2.txt'
-
-    # from Bill's email 20.09.16
-    if star_list == 1:
-        eg = pd.read_csv(path + list1,
-            dtype='str', delimiter='\s+', skiprows=1, header=None)
-        eg = eg[[4,5,6]]
-        print len(eg)
-
-    # from Bill's email 08.12.16
-    elif star_list == 2:
-        eg = pd.read_csv(path + list2,
-            dtype='str', delimiter='\s+', skiprows=2, header=None)
-        eg = eg[[4,5,6]]
-
-    # just get the HIP or TYC names
-    print '\n', 'COMPARE %s ATL to Ricky Eglands STARS' % dataset
-    names = pd.DataFrame()
-    names2 = pd.DataFrame()
-    names = eg[[4,5]][(eg[4]=='HIP') | (eg[4]=='TYC')]
-    names.rename(columns={4:'cat', 5:'num'}, inplace=True)
-    names2 = eg[[5,6]][(eg[4]=='A') | (eg[4]=='B')]
-    names2.rename(columns={5:'cat', 6:'num'}, inplace=True)
-    names = pd.concat([names, names2])
-
-    # manually add in the top star as it can't be read in
-    if star_list == 2:
-        names3 = pd.DataFrame({'cat':'TYC', 'num':'197-37-1'}, index=[0])
-        names = pd.concat([names, names3])
-
-    # tycho2 stars in the ATL
-    eggy = data[ data['TYC2_id'].isin(names['num']) ]
-    print 'tycho2 stars in ATL:', len(eggy), '/', len(names[names['cat'] == 'TYC'])
-
-    # HIP stars in the ATL
-    data = data[data['HIP']==data['HIP']] # remove Nans
-    data['HIP'] = data['HIP'].astype(int) # remove trailing '.0's
-    data['HIP'] = data['HIP'].astype(str) # the same as in eg
-    eggy2 = data[ data['HIP'].isin(names['num']) ]
-    print 'HIP stars in the ATL:', len(eggy2), '/', len(names[names['cat'] != 'TYC'])
-
-    eggy = pd.concat([eggy, eggy2])
-
-    if save == True:
-        if star_list == 2:
-
-            cols = ['Rank', 'HIP', 'TYC2_id', 'TICID' ,'ra', 'dec', 'ELon', 'ELat',
-                'GLon', 'GLat', 'HIP_vals', 'HP', 'max_T', 'Tmag', 'Imag',
-                'Vmag', 'region', 'B-V', 'e_B-V', 'Plx', 'e_Plx', 'E(B-V)',
-                'lum', 'teff', 'rad', 'numax', 'SNR_fixedBeta', 'Pdet_fixedBeta',
-                'SNR_varyBeta', 'Pdet_varyBeta']
-            eggy = eggy.ix[:, cols]
-
-            eggy.to_csv(path + 'Pdet_v2.csv', index=False)
-
-    return eggy
-
-
-# send Sarbani Basu a list of the 120s cadence ATL stars in the
-# Southern CVZ (24.07.17 email)
-def basu():
-
-    data = pd.read_csv(os.getcwd() + os.sep + 'TESS_telecon3' + os.sep +\
-                       'combinedATL' + os.sep + 'ATL.csv')
-    print 'all CVZ stars', len(data[data['max_T']==13])
-    print 'Southern CVZ stars', len(data[(data['ELat']<-10.) & (data['max_T']==13)])
-    print 'Southern CVZ 120s stars', len(data[(data['ELat']<-10.) &
-          (data['max_T']==13) & (data['HP']==0)])
-
-    sloc = os.getcwd() + os.sep + 'TESS_telecon3' +\
-        os.sep + 'Basu' + os.sep + 'SarbaniBasu'
-    data[(data['ELat']<-10.) & (data['max_T']==13)].to_csv(sloc + '.csv', index=False)
-    data[(data['ELat']<-10.) & (data['max_T']==13) & (data['HP']==0)].to_csv(sloc + '_120s.csv', index=False)
-
 def wg4(data, common=False):
     """ Compare the full TGAS and XHIP lists (before temp/luminosity/ecliptic
     latitude/red edge cuts) with the WG4 list on TASOC. Get a list of Teff/lum
@@ -2042,10 +1936,8 @@ def wg4(data, common=False):
 
     sys.exit()
 
-
-
-# get TIC ID and Tycho2 ID information from the TIC at https://tasoc.dk/search_tic/
 def TIC(data, dataset):
+    """ get TIC ID and Tycho2 ID information from the TIC at https://tasoc.dk/search_tic/ """
 
     if dataset == 'XHIP':
         # get Tycho2 IDs and TIC IDs from TASOC Wiki
@@ -2111,7 +2003,6 @@ def TIC(data, dataset):
 
     return data
 
-
 def McDonald_teffs(data):
     """ Correct the XHIP and TGAS Teffs. Use McDonald Teffs rather than (B-V)
     estimates. 'both.csv' is made in bv_teff/bv_teff.py """
@@ -2167,11 +2058,11 @@ if __name__ == '__main__':
     saveall = True  # save all parameters calculated for the stars
 
     if plx_source == 'oldplx_oldmask':
-        saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL/TESS_telecon3/'
+        saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL_public/ATL/'
     elif plx_source == 'DR2_oldmask':
-        saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL/TESS_telecon3/DR2_results/ATL_DR2oldmask/'
+        saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL_public/ATL/'
     elif plx_source == 'DR2_newmask':
-        saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL/TESS_telecon3/DR2_results/ATL_DR2newmask/'
+        saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL_public/ATL/'
     else:
         print 'Set \"plx_source\" as old, DR2_oldmask or DR2_newmask'; sys.exit()
 
