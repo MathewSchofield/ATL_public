@@ -8,10 +8,6 @@ Calculate a detection probability, Pdet, for each star. Output: ATL_top25k.csv
 ATL/DR.py
 All functions needed to generate the ATL
 
-prepare_catalogues/
-The code and files used to prepare the TGAS and DR2 catalogues,
-before the catalogues are given to generateATL.py
-
 catalogues/
 The DR2 and XHIP catalogues used to make the ATL in generateATL.py
 (also contains TGAS catalogue, used to make the first version of the ATL)

@@ -2052,7 +2052,7 @@ def McDonald_teffs(data):
 if __name__ == '__main__':
     start = timeit.default_timer()
     saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL_public/ATL/'
-    choice = '3'  # which dataset to run (1: DR2/TGAS, 2: XHIP, 3: comibned, 4: TRILEGAL)
+    choice = '3'  # which dataset to run (1: DR2/TGAS, 2: XHIP, 3: comibine 2 catalogues+save,
     plx_source = 'DR2_newmask'  # The source of parallax and pixel mask size to use to produce the ATL.
                                 # 'oldplx_oldmask', 'DR2_oldmask', 'DR2_newmask'.
     saveall = True  # save all parameters calculated for the stars
@@ -2128,27 +2128,9 @@ if __name__ == '__main__':
         print stop - start, "seconds."
         sys.exit()
 
-    elif choice == '4':
-        # TRILEGAL simulations for Warrick
-        #data = pd.read_csv('/home/mxs191/Desktop/MathewSchofield/ATL/TRILEGAL/atl_test.csv', sep='\s+')
-        data = pd.read_csv('/home/mxs191/Desktop/MathewSchofield/ATL/TRILEGAL/trilegal_for_atl.dat', sep='\s+')
-        #data = pd.read_csv('/home/mxs191/Desktop/MathewSchofield/ATL/TRILEGAL/trilegal_for_atl_test.dat', sep='\s+')
-        data.rename(columns={'R':'rad', 'L':'Lum', 'imag':'Imag_reddened', 'Teff':'teff',
-                             'gall':'GLon', 'galb':'GLat'}, inplace=True)
-        data['ELon'], data['ELat'] = gal2ecl(data['GLon'].as_matrix(), data['GLat'].as_matrix())
-        #a, b = equa_2Ecl_orGal(data['gall'].as_matrix(), data['galb'].as_matrix(), ecl=True)
-        #print e_lng, e_lat
-
-        #print data.shape, list(data)
-        #sys.exit()
-
-
-    #data = McDonald_teffs(data)  # replace Teffs with values from McDonald
-
 
     #data = regions(data)  # separate the data into 3 regions
     data = regions2(data)  # remove stars beyond the hot edge, and numax cut-off
-
 
     # calculate seismic parameters that are not needed until the detection test is run
     cadence, vnyq, data['rad'], data['numax'], teff_solar, teffred_solar,\
