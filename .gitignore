@@ -1,1 +1,2 @@
 *.csv  # do not commit the ATL catalogues themselves.
+*~
