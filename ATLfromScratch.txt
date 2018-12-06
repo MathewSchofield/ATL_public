@@ -1,0 +1,60 @@
+Generating the ATL from scratch
+
+If you've taken one look at ATL/generateATL.py and have no idea what's going on, this is for you!
+
+
+These are the steps (in Python 2) used to make the ATL presented in Schofield et al. (submitted). The original ATL used the DR2 and XHIP catalogues. You can find all of the functions needed in ATL/DR.py.
+You can see an example of the ATL in-action in DR.py __main__.
+The XHIP, TGAS and DR2 catalogues do not all have the same information available, so make sure to only calculate the parameters you need for the stars where they are missing (e.g the distances). It might be easiest to combine the catalogues at the beginning, and only calculate parameters where needed, or you may want to treat them separately until the end.
+Most of the functions are currently set up to take numpy arrays, but using pandas dataframes throughout the script will make it easier to keep track of all the variables
+
+
+Step 1: Download DR2.csv and XHIP_catalogue.csv 
+from https://figshare.com/s/e62b08021fba321175d6
+
+Step 2: Write a new Python script and read in the files
+
+Step 3: Download/calculate the stellar distances
+For the DR2 stars, these are available in the r_est column. They were taken from Bailer-Jones (2018). 
+In the TGAS catalogue, these are given as Dist_MW. These are the distances from Astraatmadja (2016), using the Milky Way prior.
+Some of the distances in the XHIP catalogue are available (see Vizier catalogue V/137D online). To calculate them uniformly for every XHIP star, use d=1/plx
+
+Step 4: Calculate Coordinates
+If unavailable, calculate the ecliptic and galactic coordinates for the stars. Ecliptic coords are used to calculate the observing time Tobs. Galactic coords are used to calculate the reddening coefficients. Using the equatorial coordinates, run equa_2Ecl_orGal(ra, dec).
+
+Step 5: Calculate B-V colours
+With the XHIP and DR2 catalogues, call bv2teff() with the B-V colours
+
+Step 6: Calculate the luminosity
+With the XHIP and DR2 catalogues, call Teff2bc2lum() with teff, the parallax (in mas) and the apparent V-band magnitude
+
+Step 7: Calculate the extinction coefficients (for the I-band (Ai) and V-band (Av) magnitudes)
+With the XHIP and DR2 catalogues, call reddening(). You will need the galactic coordinates for the stars
+
+Step 8: Calculate V-I colours
+With the XHIP and DR2 catalogues (one at a time), call bv2vi() with the B-V colours, the apparent V-band magnitude, the absolute G-band magnitude and the extinction coefficients Ai . Gmag is only used to differentiate between dwarfs and giants, so can be supplemented.
+
+Step 9: Cut stars
+With the XHIP and DR2 catalogues (one at a time), call the region2() and cuts() functions to remove non-solar-like oscillators.
+
+Step 10: Calculate global parameters
+Calculate radius and global asteroseismic parameters numax and dnu
+Call seismicParameters() with teff and the luminosity
+
+Step 11: Calculate the observing time in the TESS field
+Use tess_field_only() with the ecliptic longitude and latitude. Note this outputs the total observing time T and the maximum contiguous number of sectors a target will be observed in, max_T. max_T is used throughout the rest of the code.
+
+Step 12: Calculate the probability of detecting solar-like oscillations
+use globalDetections()
+sys_limit: the instrumental noise level for TESS. It is an engineering requirement for the satellite, as was assumed to be 0 ppm when making the ATL
+dilution was not included for the stars, so is set to 1.
+vary_beta (True or False): If True, the Beta coefficient (varies from 0 to 1) for mode damping as stars approach the delta scuti instability strip is turned on (to produce Pdet_varyBeta). If False, it is set to 1 for every star (to produce Pdet_fixedBeta).
+
+Step 13: Combine the DR2 and XHIP catalogues
+In generateATL.py, this is done with combine(). The steps are:
+a. Merge the DR2 and XHIP catalogues together using a Hipparcos or Tycho 2 ID. Append any extra XHIP stars if needed.
+b. where there are duplicated stars, use the source with the smaller fractional parammet uncertainty (this is almost always DR2).
+c. Rank the targets using ranking3() and sort them according to Pmix. Pmix is a mixture of the Pdet_fixedBeta and Pdet_varyBeta detection probabilities
+
+Step 14: Save the ATL
+The original ATL was cut at ranks below 25,000.

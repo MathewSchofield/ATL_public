@@ -1,9 +1,11 @@
 """
 Python 2
 
-Produce the ATL using either the Gaia (TGAS or DR2) or XHIP archives
-to make different versions of the ATL. These versions are then merged in the combine()
+Produce the ATL using either the Gaia (TGAS or DR2) or XHIP archives to make
+different versions of the ATL. These versions are then merged in the combine()
 function.
+
+The original ATL was made with DR2, and supplemented by XHIP.
 
 Before using the catalogues in this code:
 Download the DR2 and XHIP catalogues from
@@ -1894,48 +1896,6 @@ def combine(saveLoc, v=True, loop=False):
     #     saveLoc + subFolder + 'ATL_region3.csv']
     # make_tarfile(tarName='ATL.tar.gz', snames=snames, extension=saveLoc + subFolder)
 
-def wg4(data, common=False):
-    """ Compare the full TGAS and XHIP lists (before temp/luminosity/ecliptic
-    latitude/red edge cuts) with the WG4 list on TASOC. Get a list of Teff/lum
-    values for the common stars in WG4 and TGAS/XHIP. Combine the lists.
-
-    Inputs
-    data:   the Pandas DataFrame to merge with the WG4 list
-    common: (bool) find and save common stars between 'data' and 'wg'
-    """
-
-    if common:
-        wg = pd.read_csv(saveLoc + 'WG4/targets_2min_DSCTstars_WG4.csv',
-            usecols=['TIC', 'magV'])
-        print wg.shape
-        wg = wg.loc[wg.loc[wg['TIC'] != '-'].index.values]  # drop '-' TIC values
-        print wg.shape
-        wg.drop_duplicates(subset='TIC', inplace=True)
-        wg['TIC'] = wg['TIC'].astype(float)
-        print wg.shape
-
-        a = pd.merge(left=data[data['TIC']==data['TIC']], right=wg, how='inner',
-            left_on='TIC', right_on='TIC')
-        print len(a), 'common stars'
-
-        if choice == '1':  sname = 'TGAS'
-        if choice == '2':  sname = 'XHIP'
-        a.to_csv(saveLoc + 'WG4/' + 'WG4_' + sname + '.csv', index=False)
-
-
-    if os.path.exists(saveLoc + 'WG4/' + 'WG4_TGAS.csv') and\
-       os.path.exists(saveLoc + 'WG4/' + 'WG4_XHIP.csv'):
-
-       t = pd.read_csv(saveLoc + 'WG4/' + 'WG4_TGAS.csv')
-       x = pd.read_csv(saveLoc + 'WG4/' + 'WG4_XHIP.csv')
-       #print t.shape, x.shape
-       both = pd.concat([t[['TIC', 'teff', 'Lum']], x[['TIC', 'teff', 'Lum']]])
-       print both.shape
-       both.rename(columns={'Lum':'lum'}, inplace=True)
-       both.to_csv(saveLoc + 'WG4/' + 'WG4_TGASandXHIP.csv', index=False)
-
-    sys.exit()
-
 def TIC(data, dataset):
     """ get TIC ID and Tycho2 ID information from the TIC at https://tasoc.dk/search_tic/ """
 
@@ -2003,56 +1963,13 @@ def TIC(data, dataset):
 
     return data
 
-def McDonald_teffs(data):
-    """ Correct the XHIP and TGAS Teffs. Use McDonald Teffs rather than (B-V)
-    estimates. 'both.csv' is made in bv_teff/bv_teff.py """
-
-    mcd = pd.read_csv('/home/mxs191/Desktop/MathewSchofield/ATL/bv_teff/bv_teff1/both.csv')
-    # print list(mcd)
-    # print list(data)
-    #print data.shape, len(mcd)
-    #print data[['HIP', 'Vmag']]
-
-    if choice == '1':
-        """ match on 'teff' for the Gaia stars """
-        data = pd.merge(left=data, right=mcd[['HIP', 'teff', 'Teff']], how='left')
-
-    if choice == '2':
-        """ match on 'HIP' for the XHIP stars """
-        data = pd.merge(left=data, right=mcd[['HIP', 'Teff']], left_on='HIP', right_on='HIP', how='left')
-
-    data.drop_duplicates(inplace=True)
-    #print data.shape, list(data)
-    #print data[['teff', 'Teff']]
-    #print data[['HIP', 'Teff']][data['Teff']==data['Teff']]
-    #sys.exit()
-
-
-    z = [6.17303887e-01, -3.57906306e+03]  # from bv_teff/bv_teff.py Fit()
-    data['corrected_teff'] = data['teff'] + data['teff']*z[0]+z[1]
-
-    # where McDonald has a Teff value, use it instead of the relation from Fit()
-    #print data[['teff', 'Teff', 'corrected_teff']].tail()
-    data['corrected_teff'][data['Teff']==data['Teff']] = data['Teff'][data['Teff']==data['Teff']]
-    #print data[['teff', 'Teff', 'corrected_teff']].tail()
-    #print data.shape
-    data.drop(['teff', 'Teff'], inplace=True, axis=1)
-    data.rename(columns={'corrected_teff':'teff'}, inplace=True)
-    #print data['teff'].tail()
-
-    print data.shape, 'after changing Teffs'
-    # data = pd.merge(left=data, right=mcd[['TYC2_id', 'Teff']], how='left')
-    # print data.shape, list(data)
-    # print data['Teff'][data['Teff']==True]
-    # sys.exit()
-    return data
-
 
 
 if __name__ == '__main__':
     start = timeit.default_timer()
     saveLoc = '/home/mxs191/Desktop/MathewSchofield/ATL_public/ATL/'
-    choice = '3'  # which dataset to run (1: DR2/TGAS, 2: XHIP, 3: comibine 2 catalogues+save,
+    choice = '3'  # which dataset to run - 1: DR2/TGAS, 2: XHIP,
+                  #                        3: combine two catalogues+save,
     plx_source = 'DR2_newmask'  # The source of parallax and pixel mask size to use to produce the ATL.
                                 # 'oldplx_oldmask', 'DR2_oldmask', 'DR2_newmask'.
     saveall = True  # save all parameters calculated for the stars

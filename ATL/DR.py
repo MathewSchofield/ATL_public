@@ -681,6 +681,55 @@ def BV2VI_dwarfs(whole):
 	return whole
 
 
+def ranking3(data, alpha, v=False):
+    """
+    Rank the data using 'P_mix', the probability made by combining
+    Pdet_fixedBeta and Pdet_varyBeta. Break degeneracy at the top end of
+    'Rank_Pmix' using SNR_varyBeta.
+
+    Input
+    data:  the Pandas dataframe to rank.
+    alpha: the weighting to apply in Pmix (0<=alpha<=1).
+    v:     (bool) prints the output from this function.
+    """
+
+    data['P_mix'] = (1.-alpha)*data['Pdet_varyBeta'] + alpha*data['Pdet_fixedBeta']
+
+    if v: print data[['P_mix', 'Pdet_fixedBeta', 'Pdet_varyBeta']].head()
+    data.sort_values(by='P_mix', axis=0, ascending=False, inplace=True, kind='quicksort')
+    data['Rank_Pmix'] = data['P_mix'].rank(ascending=False)
+    if v: print data[['Rank_Pmix', 'P_mix', 'Pdet_fixedBeta', 'Pdet_varyBeta', 'SNR_varyBeta']].head()
+
+    # break the degeneracy in the top end of Rank_Pmix with SNR_varyBeta
+    top = data[data['P_mix']>0.999999]  # the 'top end' of the ATL
+    top.sort_values(by='SNR_varyBeta', axis=0, ascending=False, inplace=True, kind='quicksort')
+    top['RANK'] = top.reset_index().index.values + 1 # set this data rank as the index number
+    data['Rank_Pmix'][data['P_mix']>=0.999999] = top['RANK']
+
+    data.sort_values(by='Rank_Pmix', axis=0, ascending=True, inplace=True, kind='quicksort')
+    data.reset_index(inplace=True, drop=True)
+    if v: print data[['Rank_Pmix', 'P_mix', 'Pdet_fixedBeta', 'Pdet_varyBeta', 'SNR_varyBeta']].head(3000)
+
+    return data
+
+
+
+def regions2(data):
+    """ Remove 2-minute cadence stars outside the red-edge, and above a numax cut-off frequency. """
+
+    data['tred'] = 8907.0 * ((data['Lum'])**-0.093)
+
+    cut = 240.
+    data['region2_rad'] = ( (data['teff']/5777.)**(-0.92) * (cut/3090.) )**(1./-1.85)
+    data['region2_lum'] = data['region2_rad']**2 * (data['teff']/5777.)**4
+
+    data['region'] = '0'
+    data['region'][(data['teff'] < data['tred']) & (data['Lum'] < data['region2_lum'])] = '2'
+    data = data[data['region'] != '0']
+    print data.shape, 'after removing region=0'
+    data = data.drop(['region2_rad', 'region2_lum'], axis=1)
+    return data
+
 
 # make Teff, luminosity, Plx and ELat cuts to the data
 def cuts(plx, e_plx, bv, vi, vmag, g_mag_abs, g_lng, g_lat, e_lng, e_lat, imag, teff, lum):
